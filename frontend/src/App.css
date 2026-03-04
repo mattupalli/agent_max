@@ -116,4 +116,8 @@
   .input-area {
     padding: 10px 12px env(safe-area-inset-bottom, 16px);
   }
+
+  textarea {
+    font-size: 16px !important;
+  }
 }

@@ -129,7 +129,7 @@ export default function App() {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
-      height: '100%', minHeight: '100vh',
+      height: '100dvh', minHeight: '100dvh',
       width: '100%', maxWidth: 760,
       background: '#212121',
     }}>
