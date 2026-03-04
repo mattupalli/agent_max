@@ -24,7 +24,7 @@ function Message({ role, text }) {
 
   if (isUser) {
     return (
-      <div className="msg-enter" style={{ display: 'flex', justifyContent: 'flex-end', padding: '2px 40px' }}>
+      <div className="msg-enter msg-pad" style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <div style={{
           maxWidth: '72%',
           background: '#303030',
@@ -44,7 +44,7 @@ function Message({ role, text }) {
   }
 
   return (
-    <div className="msg-enter" style={{ padding: '2px 40px' }}>
+    <div className="msg-enter msg-pad">
       <div style={{
         fontSize: 15,
         lineHeight: 1.8,
@@ -175,7 +175,7 @@ export default function App() {
 
         {/* Typing indicator */}
         {loading && (
-          <div className="msg-enter" style={{ padding: '2px 40px' }}>
+          <div className="msg-enter msg-pad">
             <TypingDots />
           </div>
         )}
@@ -184,7 +184,7 @@ export default function App() {
       </main>
 
       {/* ── Input ── */}
-      <div style={{ padding: '10px 20px 26px', flexShrink: 0 }}>
+      <div className="input-area" style={{ flexShrink: 0 }}>
         <div className="input-glow">
           <div style={{
             display: 'flex',

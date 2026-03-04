@@ -97,3 +97,23 @@
   background: #6d6d6d;
   animation: bounce-dot 1.2s infinite;
 }
+
+/* Responsive message padding */
+.msg-pad {
+  padding: 2px 40px;
+}
+
+/* Responsive input area */
+.input-area {
+  padding: 10px 20px 26px;
+}
+
+@media (max-width: 600px) {
+  .msg-pad {
+    padding: 2px 16px;
+  }
+
+  .input-area {
+    padding: 10px 12px env(safe-area-inset-bottom, 16px);
+  }
+}
