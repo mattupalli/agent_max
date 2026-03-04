@@ -1,8 +1,8 @@
 services:
   - type: web
-    name: agent-max
+    name: agent-max-backend
     runtime: python
-    buildCommand: "pip install uv && uv sync && npm install --prefix frontend && npm run build --prefix frontend"
+    buildCommand: "pip install uv && uv sync"
     startCommand: "uv run uvicorn main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: OPEN_ROUTER_API_KEY

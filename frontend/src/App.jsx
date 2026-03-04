@@ -111,7 +111,8 @@ export default function App() {
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setLoading(true)
     try {
-      const res = await fetch(`/agent?input=${encodeURIComponent(text)}`, { method: 'POST' })
+      const base = import.meta.env.VITE_API_URL ?? ''
+      const res = await fetch(`${base}/agent?input=${encodeURIComponent(text)}`, { method: 'POST' })
       if (!res.ok) throw new Error()
       const data = await res.json()
       setMessages(p => [...p, { id: Date.now() + 1, role: 'ai', text: data.response ?? '...' }])
