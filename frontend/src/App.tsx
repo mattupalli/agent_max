@@ -1,7 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { BlurFade } from './components/ui/blur-fade'
+import { BorderBeam } from './components/ui/border-beam'
+import { Particles } from './components/ui/particles'
 import './App.css'
+
+interface Message {
+  id: number
+  role: 'user' | 'ai'
+  text: string
+}
 
 function SendIcon() {
   return (
@@ -21,32 +30,30 @@ function TypingDots() {
   )
 }
 
-function Message({ role, text }) {
-  const isUser = role === 'user'
-
-  if (isUser) {
-    return (
-      <div className="msg-enter msg-pad" style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <div style={{
-          maxWidth: '72%',
-          background: '#303030',
-          borderRadius: 20,
-          padding: '11px 17px',
-          fontSize: 15,
-          lineHeight: 1.65,
-          color: '#ececec',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          border: '1px solid #3a3a3a',
-        }}>
-          {text}
-        </div>
-      </div>
-    )
-  }
-
+function UserMessage({ text }: { text: string }) {
   return (
-    <div className="msg-enter msg-pad">
+    <div className="msg-pad" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{
+        maxWidth: '72%',
+        background: '#303030',
+        borderRadius: 20,
+        padding: '11px 17px',
+        fontSize: 15,
+        lineHeight: 1.65,
+        color: '#ececec',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        border: '1px solid #3a3a3a',
+      }}>
+        {text}
+      </div>
+    </div>
+  )
+}
+
+function AiMessage({ text }: { text: string }) {
+  return (
+    <div className="msg-pad">
       <div className="markdown-body">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
       </div>
@@ -54,19 +61,35 @@ function Message({ role, text }) {
   )
 }
 
-/* Welcome screen shown before first user message */
+function Message({ role, text }: Message) {
+  return (
+    <BlurFade direction="up" duration={0.25} delay={0}>
+      {role === 'user' ? <UserMessage text={text} /> : <AiMessage text={text} />}
+    </BlurFade>
+  )
+}
+
 function WelcomeScreen() {
   return (
-    <div className="msg-enter" style={{
+    <div style={{
+      position: 'relative',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       justifyContent: 'center', flex: 1, gap: 16, paddingBottom: 60,
+      overflow: 'hidden',
     }}>
+      <Particles
+        className="absolute inset-0"
+        quantity={50}
+        color="#fbbf24"
+        size={0.5}
+        staticity={60}
+      />
       <img
         src="/logo.png"
         alt="Agent Max"
-        style={{ width: 80, height: 80, imageRendering: 'pixelated' }}
+        style={{ width: 80, height: 80, imageRendering: 'pixelated', position: 'relative' }}
       />
-      <div style={{ textAlign: 'center' }}>
+      <div style={{ textAlign: 'center', position: 'relative' }}>
         <h2 className="shimmer-text" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6 }}>
           Agent Max
         </h2>
@@ -79,12 +102,12 @@ function WelcomeScreen() {
 }
 
 export default function App() {
-  const [messages, setMessages] = useState([])
-  const [input, setInput]       = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [focused, setFocused]   = useState(false)
-  const bottomRef               = useRef(null)
-  const textareaRef             = useRef(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const hasMessages = messages.length > 0
 
@@ -106,7 +129,7 @@ export default function App() {
     const aiId = userMsgId + 1
     setMessages(p => [...p,
       { id: userMsgId, role: 'user', text },
-      { id: aiId, role: 'ai', text: '' }
+      { id: aiId, role: 'ai', text: '' },
     ])
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
@@ -116,7 +139,7 @@ export default function App() {
       const res = await fetch(`${base}/agent?input=${encodeURIComponent(text)}`, { method: 'POST' })
       if (!res.ok) throw new Error()
       setLoading(false)
-      const reader = res.body.getReader()
+      const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
       while (true) {
@@ -124,28 +147,26 @@ export default function App() {
         if (done) break
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
-        buffer = lines.pop()
+        buffer = lines.pop() ?? ''
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
           const data = line.slice(6)
           if (data === '[DONE]') break
-          const chunk = JSON.parse(data)
+          const chunk = JSON.parse(data) as string
           setMessages(p => p.map(m => m.id === aiId ? { ...m, text: m.text + chunk } : m))
         }
       }
     } catch {
-      setMessages(p => {
-        const hasAi = p.some(m => m.id === aiId)
-        if (hasAi) return p.map(m => m.id === aiId ? { ...m, text: '⚠️ Something went wrong. Please try again.' } : m)
-        return [...p, { id: aiId, role: 'ai', text: '⚠️ Something went wrong. Please try again.' }]
-      })
+      setMessages(p => p.map(m =>
+        m.id === aiId ? { ...m, text: '⚠️ Something went wrong. Please try again.' } : m
+      ))
     } finally {
       setLoading(false)
       textareaRef.current?.focus()
     }
   }
 
-  const canSend = input.trim() && !loading
+  const canSend = Boolean(input.trim()) && !loading
 
   return (
     <div style={{
@@ -155,7 +176,7 @@ export default function App() {
       background: '#212121',
     }}>
 
-      {/* ── Header — only show once chatting ── */}
+      {/* Header */}
       {hasMessages && (
         <header style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -163,18 +184,14 @@ export default function App() {
           borderBottom: '1px solid #2c2c2c',
           flexShrink: 0,
         }}>
-          <img
-            src="/logo.png"
-            alt="Agent Max"
-            style={{ width: 24, height: 24, imageRendering: 'pixelated' }}
-          />
+          <img src="/logo.png" alt="Agent Max" style={{ width: 24, height: 24, imageRendering: 'pixelated' }} />
           <span className="shimmer-text" style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em' }}>
             Agent Max
           </span>
         </header>
       )}
 
-      {/* ── Main area ── */}
+      {/* Messages */}
       <main style={{
         flex: 1,
         overflowY: 'auto',
@@ -186,27 +203,32 @@ export default function App() {
         scrollbarWidth: 'thin',
         scrollbarColor: '#333 transparent',
       }}>
-        {/* Welcome state */}
         {!hasMessages && <WelcomeScreen />}
 
-        {/* Messages */}
         {messages.map(m => (
-          <Message key={m.id} role={m.role} text={m.text} />
+          <Message key={m.id} id={m.id} role={m.role} text={m.text} />
         ))}
 
-        {/* Typing indicator */}
         {loading && (
-          <div className="msg-enter msg-pad">
-            <TypingDots />
-          </div>
+          <BlurFade direction="up" duration={0.2}>
+            <div className="msg-pad"><TypingDots /></div>
+          </BlurFade>
         )}
 
         <div ref={bottomRef} />
       </main>
 
-      {/* ── Input ── */}
+      {/* Input */}
       <div className="input-area" style={{ flexShrink: 0 }}>
-        <div className="input-glow">
+        <div style={{ position: 'relative', borderRadius: 28, isolation: 'isolate' }}>
+          {/* BorderBeam — always visible, faster when focused */}
+          <BorderBeam
+            size={80}
+            duration={focused ? 2.5 : 5}
+            colorFrom="#fbbf24"
+            colorTo="#d97706"
+            borderWidth={1}
+          />
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -214,8 +236,7 @@ export default function App() {
             background: '#2c2c2c',
             borderRadius: 28,
             padding: '13px 13px 13px 20px',
-            border: focused ? '1px solid transparent' : '1px solid #383838',
-            transition: 'border-color 0.2s',
+            border: '1px solid #383838',
             position: 'relative',
             zIndex: 1,
           }}>
@@ -249,8 +270,8 @@ export default function App() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0, transition: 'background 0.2s, transform 0.1s',
               }}
-              onMouseEnter={e => { if (canSend) e.currentTarget.style.transform = 'scale(1.08)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+              onMouseEnter={e => { if (canSend) (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.08)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)' }}
             >
               <SendIcon />
             </button>
