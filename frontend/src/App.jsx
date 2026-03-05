@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import './App.css'
 
 function SendIcon() {
@@ -45,14 +47,8 @@ function Message({ role, text }) {
 
   return (
     <div className="msg-enter msg-pad">
-      <div style={{
-        fontSize: 15,
-        lineHeight: 1.8,
-        color: '#d4d4d4',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-      }}>
-        {text}
+      <div className="markdown-body">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
       </div>
     </div>
   )
@@ -106,7 +102,12 @@ export default function App() {
   const sendMessage = async () => {
     const text = input.trim()
     if (!text || loading) return
-    setMessages(p => [...p, { id: Date.now(), role: 'user', text }])
+    const userMsgId = Date.now()
+    const aiId = userMsgId + 1
+    setMessages(p => [...p,
+      { id: userMsgId, role: 'user', text },
+      { id: aiId, role: 'ai', text: '' }
+    ])
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setLoading(true)
@@ -114,10 +115,30 @@ export default function App() {
       const base = import.meta.env.VITE_API_URL ?? ''
       const res = await fetch(`${base}/agent?input=${encodeURIComponent(text)}`, { method: 'POST' })
       if (!res.ok) throw new Error()
-      const data = await res.json()
-      setMessages(p => [...p, { id: Date.now() + 1, role: 'ai', text: data.response ?? '...' }])
+      setLoading(false)
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop()
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const data = line.slice(6)
+          if (data === '[DONE]') break
+          const chunk = JSON.parse(data)
+          setMessages(p => p.map(m => m.id === aiId ? { ...m, text: m.text + chunk } : m))
+        }
+      }
     } catch {
-      setMessages(p => [...p, { id: Date.now() + 1, role: 'ai', text: '⚠️ Something went wrong. Please try again.' }])
+      setMessages(p => {
+        const hasAi = p.some(m => m.id === aiId)
+        if (hasAi) return p.map(m => m.id === aiId ? { ...m, text: '⚠️ Something went wrong. Please try again.' } : m)
+        return [...p, { id: aiId, role: 'ai', text: '⚠️ Something went wrong. Please try again.' }]
+      })
     } finally {
       setLoading(false)
       textareaRef.current?.focus()

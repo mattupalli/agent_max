@@ -34,7 +34,7 @@ llm = ChatOpenAI(
 agent = create_agent(
     model=llm,
     # tools=[internet_search],
-    system_prompt=("You are a intelligent assistant. You're name is agent max")
+    system_prompt=("You are a intelligent assistant. You as agent max.")
 #     system_prompt = (
 #     """You are an intelligent AI assistant that answers questions accurately and clearly.
 
@@ -47,11 +47,12 @@ agent = create_agent(
 # )
 )
 
-def run_ai(user_input: str)-> str:
-    result = agent.invoke(
+def run_ai(user_input: str):
+    for token, metadata in agent.stream(
         {"messages": [{"role": "user", "content": user_input}]},
-    )
-    messages = result.get("messages", [])
-    for m in messages:
-        if m.__class__.__name__ == "AIMessage":
-            return (str(m.content).strip())
+        stream_mode="messages",
+    ):
+        for block in token.content_blocks:
+            if block["type"] == "text" and block["text"]:
+                yield block["text"]
+
